@@ -229,6 +229,8 @@ class Game:
         if self.counts[x][y] != 0:
             return squares
 
+        # When this square have 0 mine in its neighours, then all of these 8
+        # neighbors could be expanded safely. We do this in a BFS maner.
         stack = [(x, y)]
         while len(stack) > 0:
             (x, y) = stack.pop()
