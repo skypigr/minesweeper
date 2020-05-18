@@ -5,6 +5,8 @@ import itertools
 import logging
 import random
 
+from typing import List, Tuple, Set
+
 logger = logging.getLogger(__name__)
 
 
@@ -108,13 +110,14 @@ class Game:
         self.exposed = [[False for y in range(self.height)] for x in range(self.width)]
         self.counts = [[0 for y in range(self.height)] for x in range(self.width)]
         self._flags = {}
+        self._first_move = True
 
         if mines:
             self.mines = copy.deepcopy(mines)
         else:
             self.mines = [[False for y in range(self.height)] for x in range(self.width)]
-            self._place_mines()
-        self._init_counts()
+            # self._place_mines()
+        # self._init_counts()
         logger.info("Game initialized")
 
     @property
@@ -190,17 +193,24 @@ class Game:
         if self.exposed[x][y]:
             raise ValueError('Position already exposed')
         self.num_moves += 1
+        
+        if self._first_move:
+            self._place_mines({(x,y)})
+            self._init_counts()
+            self._first_move = False
+        
         # must call update before accessing the status
         squares = self._update(x, y)
         logger.info("%d squares are revealed", len(squares))
         return MoveResult(self.status, squares)
 
-    def _place_mines(self):
+    def _place_mines(self, excludes: Set[Tuple[int, int]] = {}):
         locations = set()
         while len(locations) < self.num_mines:
             x = random.randint(0, self.width - 1)
             y = random.randint(0, self.height - 1)
-            locations.add((x, y))
+            if (x,y) not in excludes:
+                locations.add((x, y))
         for location in locations:
             self.mines[location[0]][location[1]] = True
 
