@@ -118,8 +118,8 @@ class Game:
             self.mines = copy.deepcopy(mines)
         else:
             self.mines = [[False for y in range(self.height)] for x in range(self.width)]
-            self._place_mines()
-        self._init_counts()
+        #     self._place_mines()
+        # self._init_counts()
         logger.info("Game initialized")
 
     @property
@@ -196,14 +196,14 @@ class Game:
             raise ValueError('Position already exposed')
         self.num_moves += 1
         
-        # if self._first_move:
-        #     self._place_mines({(x,y)})
-        #     self._init_counts()
-        #     self._first_move = False
+        if self._first_move:
+            self._place_mines({(x,y)})
+            self._init_counts()
+            self._first_move = False
         
         # must call update before accessing the status
         squares = self._update(x, y)
-        logger.info("%d squares are revealed%s", len(squares), "" if len(squares)>1 else " ->"+str(squares[0].num_mines))
+        logger.info("%d squares are revealed%s", len(squares), "" if len(squares)>1 else " -> "+str(squares[0].num_mines))
         return MoveResult(self.status, squares)
 
     def _place_mines(self, excludes: Set[Tuple[int, int]] = {}):
@@ -219,6 +219,9 @@ class Game:
     def _init_counts(self):
         """Calculates how many neighboring squares have mines for all squares"""
         for x, y in itertools.product(range(self.width), range(self.height)):
+            if self.mines[x][y]:
+                self.counts[x][y] = -1
+                continue
             for dx, dy in itertools.product([-1, 0, 1], repeat=2):
                 if dx == 0 and dy == 0:
                     continue

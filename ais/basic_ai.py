@@ -213,8 +213,8 @@ class BasicAI(ms.AI):
     def update(self, result: ms.MoveResult):
         if result.status == ms.GameStatus.DEFEAT:
             logger.info("##### NO NO NO! Game over! #####")
-            return None
-               
+            return
+
         for square in result.new_squares:
             self.exposed_squares[(square.x, square.y)] = square.num_mines
             
