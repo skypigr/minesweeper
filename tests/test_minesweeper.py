@@ -56,10 +56,10 @@ def test_game_init_for_total_mine_count():
 
 def test_game_init_for_neighbor_mine_counts(game1):
     counts = flip([
-        [0, 1, 1, 1, 1],
-        [1, 1, 2, 1, 2],
-        [0, 1, 3, 2, 2],
-        [0, 1, 1, 2, 1]
+        [-1, 1, 1, 1, 1],
+        [1, 1, 2, -1, 2],
+        [0, 1, 3, -1, 2],
+        [0, 1, -1, 2, 1]
     ])
     assert counts == game1.counts
 
@@ -107,7 +107,7 @@ def test_select_with_mine(game2):
     result = game2.select(1, 0)
     assert game2.game_over
     assert 1 == len(result.new_squares)
-    assert ms.Square(1, 0, 0) in result.new_squares
+    assert ms.Square(1, 0, -1) in result.new_squares
 
 
 def test_select_with_victory(game3):
