@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def tuplelist_to_str(tl : List[Tuple[int, int]]) -> str:
-    return ','.join(['({:d}, {:d})'.format(x, y) for x, y in tl])
+    return ', '.join(['({:d},{:d})'.format(x, y) for x, y in tl])
 
 class AlgorithmAlpha(object):
     def __init__(self, config: ms.GameConfig):
@@ -84,27 +84,32 @@ class AlgorithmBeta(object):
         original_num_of_safe_choices = len(self.safe_choices)
         original_num_of_flags = len(self.flags)
         
-        # new_choice = set()
         for (x, y), num_mines in self.exposed_squares.items():
             if num_mines == 0: continue
             
             marked_mines, unexposed_squares = self.check_neighbors(x, y)
             
-            # best case, all mines are recovered, time to add the remaining neighbors
+            # Best case, all mines are recovered, only need to add the remaining neighbors
             # to save list.
-            # print('processing ({:d}, {:d}), marked mine: {:d}, max mines:{:d}, unexposed:'.format(x,y, marked_mines, num_mines), unexposed_squares, self.flags)
+            logger.debug('Processing ({:d}, {:d}), mines/total: {:d}/{:d}, unexposed: {:s}'
+                         .format(x, y, 
+                                 marked_mines, 
+                                 num_mines, 
+                                 tuplelist_to_str(sorted(unexposed_squares))
+                                 )
+                         )
             if marked_mines == num_mines:
-                # print("good, all mines are found, add remaining squares to safe list")
+                logger.debug("Nice, all mines are found, add remaining squares to safe list")
                 self.safe_choices.update(unexposed_squares)
             elif marked_mines + len(unexposed_squares) == num_mines:
-                # all unexposed squares are real mines. mark them.
-                # print("ok, these unexposed square are mines..")
+                # All unexposed squares are real mines. mark them.
+                logger.debug("Good, these unexposed squares are actually mines, add them to flags")
                 for mx, my in unexposed_squares:
                     self.flags.add((mx, my))
                     
-        # if we found some new mines or safe choices, that means some of our 
-        # judgement may be outdated. We run this process recursively to get
-        # an optimal result
+        # Ff we find some new mines or safe choices, that means some of our 
+        # judgements may be outdated. We run this process recursively to get
+        # the optimal results.
         if original_num_of_safe_choices != len(self.safe_choices) or original_num_of_flags != len(self.flags):
             logger.debug("Recursively apply update_flags...")
             self.update_flags()
@@ -129,7 +134,8 @@ class BasicAI(ms.AI):
         self.exposed_squares = dict()
         self.algo = algo
         self.safe_choices = set()
-        self._flags = set()  # List[Tuple[int, int]]
+        # Set[Tuple[int, int]]
+        self._flags = set() 
     
     @property
     def flags(self):
@@ -191,7 +197,7 @@ class BasicAI(ms.AI):
         self._flags.update(flags)
         self.safe_choices.update(new_choices)
 
-        # cleans safe choice list.
+        # Cleans safe choice list.
         self.safe_choices = self.safe_choices - set(self.exposed_squares.keys())
-        # log current board state.
+        # Logs current board state.
         self.pretty_print()

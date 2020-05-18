@@ -25,5 +25,3 @@ for i, result in enumerate(results):
 ratio = num_wins / num_games
 print('-------------------------')
 print('Ratio: {:.2f}'.format(ratio))
-# print('Game lasted {0} moves'.format(result.num_moves)) 
-# print('Vitory? {:d}'.format(result.victory)) 
