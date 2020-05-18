@@ -8,12 +8,12 @@ print("The minesweeper window needs focus to capture a key press.")
 print()
 
 num_games = 1
-config = ms.GameConfig(16,16,40)
+config = ms.GameConfig(9,16,20)
 ai = myai.BasicAI(myai.AlgorithmBeta(config))
 viz = ms.PyGameVisualizer(pause='key', next_game_prompt=True)
 
 
-results = ms.run_games(config, num_games, ai,viz)
+results = ms.run_games(config, num_games, ai)
 print('\n\nResults:')
 print('-------------------------')
 

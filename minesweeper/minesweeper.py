@@ -43,7 +43,6 @@ class GameResult:
         self.victory = victory
         self.num_moves = num_moves
 
-
 class Square:
     """Square information
 
@@ -64,6 +63,9 @@ class Square:
 
     def __hash__(self):
         return hash((self.x, self.y, self.num_mines))
+    
+    def __str__(self):
+        return '({:d},{:d}:{:d})'.format(self.x, self.y, self.num_mines)
 
 
 class MoveResult:
@@ -116,8 +118,8 @@ class Game:
             self.mines = copy.deepcopy(mines)
         else:
             self.mines = [[False for y in range(self.height)] for x in range(self.width)]
-            # self._place_mines()
-        # self._init_counts()
+            self._place_mines()
+        self._init_counts()
         logger.info("Game initialized")
 
     @property
@@ -194,14 +196,14 @@ class Game:
             raise ValueError('Position already exposed')
         self.num_moves += 1
         
-        if self._first_move:
-            self._place_mines({(x,y)})
-            self._init_counts()
-            self._first_move = False
+        # if self._first_move:
+        #     self._place_mines({(x,y)})
+        #     self._init_counts()
+        #     self._first_move = False
         
         # must call update before accessing the status
         squares = self._update(x, y)
-        logger.info("%d squares are revealed", len(squares))
+        logger.info("%d squares are revealed%s", len(squares), "" if len(squares)>1 else " ->"+str(squares[0].num_mines))
         return MoveResult(self.status, squares)
 
     def _place_mines(self, excludes: Set[Tuple[int, int]] = {}):
@@ -271,9 +273,27 @@ class Game:
             return True
         return False
 
+    def double_check_mine_counts(self) -> bool:
+        """Calculates how many neighboring squares have mines for all squares"""
+
+        for x, y in itertools.product(range(self.width), range(self.height)):
+            count = 0
+            for dx, dy in itertools.product([-1, 0, 1], repeat=2):
+                if dx == 0 and dy == 0:
+                    continue
+                if not self._is_outside_board(x + dx, y + dy):
+                    if self.mines[x+dx][y+dy]:
+                        count +=1
+            if count != self.counts[x][y]:
+                return False
+        return True
 
 class AI(abc.ABC):
     """Minesweeper AI Base class"""
+
+    @abc.abstractmethod
+    def pretty_print(self):
+        """Print out the current game state in debug mode."""
 
     @abc.abstractmethod
     def reset(self, config):
@@ -311,12 +331,14 @@ class AI(abc.ABC):
         """
         return []
 
-
 class RandomAI(AI):
     def __init__(self):
         self.width = 0
         self.height = 0
-        self.exposed_squares = set()
+        self.exposed_squares = dict()
+
+    def pretty_print(self):
+        pass
 
     def reset(self, config):
         self.width = config.width
@@ -333,7 +355,7 @@ class RandomAI(AI):
 
     def update(self, result):
         for position in result.new_squares:
-            self.exposed_squares.add((position.x, position.y))
+            self.exposed_squares[(position.x, position.y)] = position.num_mines
 
 
 class Runner:
@@ -355,13 +377,48 @@ class Runner:
         """Advances the game one move"""
         if not self.game.game_over:
             coordinates = self.ai.next()
+            print("Next is ({:d}, {:d})".format(coordinates[0], coordinates[1]))
             result = self.game.select(*coordinates)
+            print("Result: status - {:s}".format(result.status))
+            print("Result: new_squares", list(result.new_squares)[0])
             self.ai.update(result)
             if result.status == GameStatus.PLAYING:
                 self.game.flags = self.ai.flags
             else:
-                # print("bad choice:", coordinates)
                 logger.info("Game is over")
+                logger.debug("Status: {:s}".format(result.status))
+                logger.debug("Last move: ({:d},{:d})".format(coordinates[0], coordinates[1]))
+                wrong_placed_mines = []
+                for x, y in self.ai.flags:
+                    if not self.game.mines[x][y]:
+                        wrong_placed_mines.append((x,y))
+                print("Wrong placed mines:", wrong_placed_mines)
+                print("Count correct:", self.game.double_check_mine_counts())
+                
+                # compare counts between algo and ai
+                wrong_counts = []
+                for (x,y), count in self.ai.exposed_squares.items():
+                    game_count = self.game.counts[x][y]
+                    # logger.debug("({:d},{:d}) ai: {:d} game: {:d}".format(x,y,count, game_count))
+                    if count != game_count:
+                        wrong_counts.append((x ,y))
+                print("Wrong counts:", wrong_counts)
+                
+                
+                # compare exposed squares
+                wrong_exposed_squares = []
+                # for x,y in self.ai.exposed_squares:
+                #     if 
+                for i in range(self.game.width):
+                    for j in range(self.game.height):
+                        if self.game.exposed[i][j]:
+                            if (i,j) not in self.ai.exposed_squares:
+                                wrong_exposed_squares.append((i,j))
+                print("Wrong exposed squares:", wrong_exposed_squares)
+                                
+                # print("game mines:", sorted(self.game.mines))
+                # print("  ai mines:", sorted(self.ai.flags))
+                self.ai.pretty_print()
         else:
             raise StopIteration()
 
