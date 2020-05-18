@@ -1,1 +1,1 @@
-from .basic_ai import BasicAI
+from .basic_ai import BasicAI, AlgorithmAlpha, AlgorithmBeta

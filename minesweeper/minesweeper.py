@@ -350,6 +350,7 @@ class Runner:
             if result.status == GameStatus.PLAYING:
                 self.game.flags = self.ai.flags
             else:
+                # print("bad choice:", coordinates)
                 logger.info("Game is over")
         else:
             raise StopIteration()
