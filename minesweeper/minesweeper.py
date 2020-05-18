@@ -118,8 +118,8 @@ class Game:
             self.mines = copy.deepcopy(mines)
         else:
             self.mines = [[False for y in range(self.height)] for x in range(self.width)]
-        #     self._place_mines()
-        # self._init_counts()
+            self._place_mines()
+        self._init_counts()
         logger.info("Game initialized")
 
     @property
@@ -196,10 +196,10 @@ class Game:
             raise ValueError('Position already exposed')
         self.num_moves += 1
         
-        if self._first_move:
-            self._place_mines({(x,y)})
-            self._init_counts()
-            self._first_move = False
+        # if self._first_move:
+        #     self._place_mines({(x,y)})
+        #     self._init_counts()
+        #     self._first_move = False
         
         # must call update before accessing the status
         squares = self._update(x, y)
