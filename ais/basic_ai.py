@@ -185,10 +185,10 @@ class BasicAI(ms.AI):
                     
             output.append(" ".join(line))
                     
-        print("")
+        logger.info("")
         for line in output:
             logger.info(line)
-        print("")
+        logger.info("")
 
     def next(self) -> Tuple[int, int]:
         if self.safe_choices:

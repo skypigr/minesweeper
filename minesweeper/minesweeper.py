@@ -4,6 +4,7 @@ import enum
 import itertools
 import logging
 import random
+import concurrent.futures
 
 from typing import List, Tuple, Set
 
@@ -118,8 +119,8 @@ class Game:
             self.mines = copy.deepcopy(mines)
         else:
             self.mines = [[False for y in range(self.height)] for x in range(self.width)]
-            self._place_mines()
-        self._init_counts()
+        #     self._place_mines()
+        # self._init_counts()
         logger.info("Game initialized")
 
     @property
@@ -196,10 +197,10 @@ class Game:
             raise ValueError('Position already exposed')
         self.num_moves += 1
         
-        # if self._first_move:
-        #     self._place_mines({(x,y)})
-        #     self._init_counts()
-        #     self._first_move = False
+        if self._first_move:
+            self._place_mines({(x,y)})
+            self._init_counts()
+            self._first_move = False
         
         # must call update before accessing the status
         squares = self._update(x, y)
@@ -380,10 +381,10 @@ class Runner:
         """Advances the game one move"""
         if not self.game.game_over:
             coordinates = self.ai.next()
-            print("Next is ({:d}, {:d})".format(coordinates[0], coordinates[1]))
+            logger.debug("Next is ({:d}, {:d})".format(coordinates[0], coordinates[1]))
             result = self.game.select(*coordinates)
-            print("Result: status - {:s}".format(result.status))
-            print("Result: new_squares", list(result.new_squares)[0])
+            logger.debug("Result: status - {:s}".format(result.status))
+            logger.debug("Result: new_squares", list(result.new_squares)[0])
             self.ai.update(result)
             if result.status == GameStatus.PLAYING:
                 self.game.flags = self.ai.flags
@@ -391,63 +392,109 @@ class Runner:
                 logger.info("Game is over")
                 logger.debug("Status: {:s}".format(result.status))
                 logger.debug("Last move: ({:d},{:d})".format(coordinates[0], coordinates[1]))
-                wrong_placed_mines = []
-                for x, y in self.ai.flags:
-                    if not self.game.mines[x][y]:
-                        wrong_placed_mines.append((x,y))
-                print("Wrong placed mines:", wrong_placed_mines)
-                print("Count correct:", self.game.double_check_mine_counts())
+                # wrong_placed_mines = []
+                # for x, y in self.ai.flags:
+                #     if not self.game.mines[x][y]:
+                #         wrong_placed_mines.append((x,y))
+                # print("Wrong placed mines:", wrong_placed_mines)
+                # print("Count correct:", self.game.double_check_mine_counts())
                 
-                # compare counts between algo and ai
-                wrong_counts = []
-                for (x,y), count in self.ai.exposed_squares.items():
-                    game_count = self.game.counts[x][y]
-                    # logger.debug("({:d},{:d}) ai: {:d} game: {:d}".format(x,y,count, game_count))
-                    if count != game_count:
-                        wrong_counts.append((x ,y))
-                print("Wrong counts:", wrong_counts)
+                # # compare counts between algo and ai
+                # wrong_counts = []
+                # for (x,y), count in self.ai.exposed_squares.items():
+                #     game_count = self.game.counts[x][y]
+                #     # logger.debug("({:d},{:d}) ai: {:d} game: {:d}".format(x,y,count, game_count))
+                #     if count != game_count:
+                #         wrong_counts.append((x ,y))
+                # print("Wrong counts:", wrong_counts)
                 
                 
-                # compare exposed squares
-                wrong_exposed_squares = []
-                # for x,y in self.ai.exposed_squares:
-                #     if 
-                for i in range(self.game.width):
-                    for j in range(self.game.height):
-                        if self.game.exposed[i][j]:
-                            if (i,j) not in self.ai.exposed_squares:
-                                wrong_exposed_squares.append((i,j))
-                print("Wrong exposed squares:", wrong_exposed_squares)
-                                
-                # print("game mines:", sorted(self.game.mines))
-                # print("  ai mines:", sorted(self.ai.flags))
+                # # compare exposed squares
+                # wrong_exposed_squares = []
+                # # for x,y in self.ai.exposed_squares:
+                # #     if 
+                # for i in range(self.game.width):
+                #     for j in range(self.game.height):
+                #         if self.game.exposed[i][j]:
+                #             if (i,j) not in self.ai.exposed_squares:
+                #                 wrong_exposed_squares.append((i,j))
+                # print("Wrong exposed squares:", wrong_exposed_squares)
                 self.ai.pretty_print()
         else:
             raise StopIteration()
 
 
-def run_games(config, num_games, ai, viz=None):
-    """ Run a set of games to evaluate an AI
+# def run_games(config, num_games, ai, viz=None):
+#     """ Run a set of games to evaluate an AI
+
+#     Args:
+#         config (GameConfig): Parameters of the game.
+#         num_games (int): Number of games.
+#         ai (AI): The AI
+#         viz (GameVisualizer, optional): Visualizer
+
+#     Returns:
+#         list: List of GameResult objects
+#     """
+#     results = []
+#     for n in range(num_games):
+#         logger.info("Starting game %d", n + 1)
+#         ai.reset(config)
+#         game = Game(config)
+#         runner = Runner(game, ai)
+#         if viz:
+#             viz.run(runner)
+#         else:
+#             for _ in runner:
+#                 pass
+#         results.append(game.result)
+#     return results
+
+def run_games(config, num_games, ai, threads = 2, viz=None):
+    """ Run a set of games parallelly to evaluate an AI
 
     Args:
         config (GameConfig): Parameters of the game.
         num_games (int): Number of games.
+        threads (int): Max number of threads to use
         ai (AI): The AI
+        viz (GameVisualizer, optional): Visualizer
+
+    Returns:
+        dict: A Map from pid to GameResult.
+    """
+    results = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
+        future_to_pid = {executor.submit(run_game, config, ai, pid): pid for pid in range(num_games)}
+        for future in concurrent.futures.as_completed(future_to_pid):
+            pid = future_to_pid[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                print('%d generated an exception: %s' % (pid, exc))
+            else:
+                results.append((pid, result))
+    return results
+
+def run_game(config, ai, pid = 0, viz=None):
+    """ Run one game to evaluate an AI
+
+    Args:
+        config (GameConfig): Parameters of the game.
+        ai (AI): The AI
+        pid (int): The index of current run.
         viz (GameVisualizer, optional): Visualizer
 
     Returns:
         list: List of GameResult objects
     """
-    results = []
-    for n in range(num_games):
-        logger.info("Starting game %d", n + 1)
-        ai.reset(config)
-        game = Game(config)
-        runner = Runner(game, ai)
-        if viz:
-            viz.run(runner)
-        else:
-            for _ in runner:
-                pass
-        results.append(game.result)
-    return results
+    logger.info("Starting game %d", pid)
+    ai.reset(config)
+    game = Game(config)
+    runner = Runner(game, ai)
+    if viz:
+        viz.run(runner)
+    else:
+        for _ in runner:
+            pass
+    return game.result
